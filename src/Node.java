@@ -15,6 +15,7 @@ public class Node {
 	public Set<String> gen;
 	public Set<String> kill;
 	public Set<String> LiveOut;
+	public boolean visited = false;
 	
 	public Node() {
 		this.predecessors = new ArrayList<Node>();

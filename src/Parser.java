@@ -76,15 +76,34 @@ public class Parser {
 		printWriter.println("\tsize = \"4,4\";");
 		
 		for(Node entry : entries) {
+			liveOut(entry.exit);
 			int exit = cfg_counter++;
 			entry.exit.number = exit;
 			traverse(entry, printWriter, exit);
 			//printWriter.println("\tnode" + exit + "[label=\"Exit\"]");
-			printWriter.println("\tnode" + exit + "[label=\"" + exit + "\\n" + dominance(entry.exit) + "\\n" + "Exit\"]");
+			printWriter.println("\tnode" + exit + "[label=\"" + exit + "\\n" + dominance(entry.exit) + "\\nExit\\nLiveOut=" + entry.exit.LiveOut.toString() + "\"]");
 		}
 		
 		printWriter.print("}");
 		printWriter.close();
+	}
+	
+	private void liveOut(Node node) {
+		for(Node successor : node.successors) {if(successor.visited == false) return;}
+		for(Node successor : node.successors) {
+			Set<String> set = new HashSet<String>(successor.LiveOut);
+			Iterator<String> iterator = successor.kill.iterator();
+			while(iterator.hasNext()) {set.remove(iterator.next());}
+			iterator = successor.gen.iterator();
+			while(iterator.hasNext()) {set.add(iterator.next());}
+			iterator = set.iterator();
+			while(iterator.hasNext()) {node.LiveOut.add(iterator.next());}
+		}
+		node.visited = true;
+		
+		for(Node predecessor : node.predecessors) {
+			liveOut(predecessor);
+		}
 	}
 	
 	private int traverse(Node node, PrintWriter printWriter, int exit) {
@@ -93,8 +112,7 @@ public class Parser {
 				if(node.number == -1) {node.number = cfg_counter++;}
 				String dominance = dominance(node);
 				if(dominance != null) {
-					printWriter.println("\tnode" + node.number + "[label=\"" + node.number + "\\n" + dominance + "\\n" + node.statement + "\"]");
-					//printWriter.println("\tnode" + node.number + "[label=\"" + node.number + "\\n" + dominance + "\\ngen:" + node.gen.toString() + "\\nkill:" + node.kill.toString() + "\\n" + node.statement + "\"]");
+					printWriter.println("\tnode" + node.number + "[label=\"" + node.number + "\\n" + dominance + "\\n" + node.statement + "\\nLiveOut=" + node.LiveOut.toString() + "\"]");
 					node.visited_predecessors = true;
 				}
 				else {
