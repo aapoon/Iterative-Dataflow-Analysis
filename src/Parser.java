@@ -3,6 +3,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
@@ -75,8 +77,10 @@ public class Parser {
 		
 		for(Node entry : entries) {
 			int exit = cfg_counter++;
-			printWriter.println("\tnode" + exit + "[label=\"Exit\"]");
+			entry.exit.number = exit;
 			traverse(entry, printWriter, exit);
+			//printWriter.println("\tnode" + exit + "[label=\"Exit\"]");
+			printWriter.println("\tnode" + exit + "[label=\"" + exit + "\\n" + dominance(entry.exit) + "\\n" + "Exit\"]");
 		}
 		
 		printWriter.print("}");
@@ -85,9 +89,17 @@ public class Parser {
 	
 	private int traverse(Node node, PrintWriter printWriter, int exit) {
 		if(node.successors.size() != 0) {
-			if(node.number == -1) {
-				node.number = cfg_counter++;
-				printWriter.println("\tnode" + node.number + "[label=\"" + node.statement + "\"]");
+			if(node.number == -1 || node.visited_predecessors == false) {
+				if(node.number == -1) {node.number = cfg_counter++;}
+				String dominance = dominance(node);
+				if(dominance != null) {
+					printWriter.println("\tnode" + node.number + "[label=\"" + node.number + "\\n" + dominance + "\\n" + node.statement + "\"]");
+					//printWriter.println("\tnode" + node.number + "[label=\"" + node.number + "\\n" + dominance + "\\ngen:" + node.gen.toString() + "\\nkill:" + node.kill.toString() + "\\n" + node.statement + "\"]");
+					node.visited_predecessors = true;
+				}
+				else {
+					return node.number;
+				}
 				for(int i = 0; i < node.successors.size(); i++) {
 					int successor_num = traverse(node.successors.get(i), printWriter, exit);
 					printWriter.println("\tnode" + node.number + " -> node" + successor_num + (node.successors.size() == 2 ? "[label=\"" + (i == 0 ? "true" : "false") +"\"]": ""));
@@ -98,6 +110,38 @@ public class Parser {
 		return exit;
 	}
 	
+	private String dominance(Node node) {
+		Set<Integer> intersection = null;
+		if(node.predecessors.size() > 0) {
+			if(node.predecessors.get(0).number == -1) {return null;}
+			intersection = new LinkedHashSet<Integer>(node.predecessors.get(0).dom);
+			for(int i = 1; i < node.predecessors.size(); i++) {
+				if(node.predecessors.get(i).number == -1) {return null;}
+				intersection.retainAll(node.predecessors.get(i).dom);
+			}
+		}
+		else {
+			intersection = new LinkedHashSet<Integer>();
+		}
+		intersection.add(node.number);
+
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append("DOM={");
+		Iterator<Integer> iterator = intersection.iterator();
+		Integer first = iterator.next();
+		stringBuilder.append(first);
+		node.dom.add(first);
+		while(iterator.hasNext()) {
+			stringBuilder.append(",");
+			Integer next = iterator.next();
+			stringBuilder.append(next);
+			node.dom.add(next);
+		}
+		stringBuilder.append("}");
+		
+		return stringBuilder.toString();
+	}
+	
 	private void controlFlowGraph(Program program) throws IOException {
 		List<Node> entries = new ArrayList<Node>();
 		for(Function function : program.functions) {
@@ -105,6 +149,7 @@ public class Parser {
 			entry.statement = "Entry";
 			Node exit = new Node();
 			exit.statement = "Exit";
+			entry.exit = exit;
 			
 			Node answer = createControlFlowGraph(entry, exit, function.body);
 			if(answer != null) {
@@ -128,6 +173,8 @@ public class Parser {
 		else if(statement instanceof ST_ASSIGN) {
 			Node node = new Node();
 			node.statement = ((ST_ASSIGN) statement).toString();
+			node.gen = ((ST_ASSIGN) statement).getGenVariables();
+			node.kill.add(((ST_ASSIGN) statement).id);
 			node.predecessors.add(predecessor);
 			predecessor.successors.add(node);
 			return node;
@@ -135,6 +182,7 @@ public class Parser {
 		else if(statement instanceof ST_IF) {
 			Node node = new Node();
 			node.statement = ((ST_IF) statement).toString();
+			node.gen = ((ST_IF) statement).getGenVariables();
 			node.predecessors.add(predecessor);
 			predecessor.successors.add(node);
 			
@@ -159,17 +207,18 @@ public class Parser {
 		else if(statement instanceof ST_WHILE) {
 			Node node = new Node();
 			node.statement = ((ST_WHILE) statement).toString();
+			node.gen = ((ST_WHILE) statement).getGenVariables();
 			node.predecessors.add(predecessor);
 			predecessor.successors.add(node);
 			Node trueNode = createControlFlowGraph(node, exit, ((ST_WHILE) statement).body);
 			if(trueNode == null) {return null;}
-			node.predecessors.add(trueNode);
 			trueNode.successors.add(node);
 			return node;
 		}
 		else if(statement instanceof ST_RETURN) {
 			Node node = new Node();
 			node.statement = ((ST_RETURN) statement).toString();
+			node.gen = ((ST_RETURN) statement).getGenVariables();
 			
 			node.predecessors.add(predecessor);
 			predecessor.successors.add(node);
@@ -181,6 +230,7 @@ public class Parser {
 		else if(statement instanceof ST_PRINT) {
 			Node node = new Node();
 			node.statement = ((ST_PRINT) statement).toString();
+			node.gen = ((ST_PRINT) statement).getGenVariables();
 			node.predecessors.add(predecessor);
 			predecessor.successors.add(node);
 			return node;

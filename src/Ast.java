@@ -1,4 +1,7 @@
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 public class Ast {}
 
@@ -18,7 +21,9 @@ enum UnaryOperator {
 	public String getSymbol() {return symbol;}
 }
 
-interface Expression {}
+interface Expression {
+	public Set<String> getGenVariables();
+}
 
 class EXP_NUM implements Expression {
 	public int num;
@@ -31,6 +36,9 @@ class EXP_NUM implements Expression {
 	public String toString() {
 		return "(num " + num + ")";
 	}
+	
+	@Override
+	public Set<String> getGenVariables() {return new HashSet<String>();}
 }
 
 class EXP_ID implements Expression {
@@ -44,6 +52,13 @@ class EXP_ID implements Expression {
 	public String toString() {
 		return "(var " + id + ")";
 	}
+	
+	@Override
+	public Set<String> getGenVariables() {
+		Set<String> set = new HashSet<String>();
+		set.add(id);
+		return set;
+	}
 }
 
 class EXP_TRUE implements Expression {
@@ -51,12 +66,16 @@ class EXP_TRUE implements Expression {
 	public String toString() {
 		return "(bool true)";
 	}
+	
+	@Override
+	public Set<String> getGenVariables() {return new HashSet<String>();}
 }
 class EXP_FALSE implements Expression {
 	@Override
-	public String toString() {
-		return "(bool false)";
-	}
+	public String toString() {return "(bool false)";}
+	
+	@Override
+	public Set<String> getGenVariables() {return new HashSet<String>();}
 }
 
 class EXP_BINARY implements Expression {
@@ -74,6 +93,14 @@ class EXP_BINARY implements Expression {
 	public String toString() {
 		return "(" + opr.getSymbol() + " " + lft.toString() + " " + rht.toString() + ")";
 	}
+	
+	@Override
+	public Set<String> getGenVariables() {
+		Set<String> set = lft.getGenVariables();
+		Iterator<String> iterator = rht.getGenVariables().iterator();
+		while(iterator.hasNext()) {set.add(iterator.next());}
+		return set;
+	}
 }
 
 class EXP_UNARY implements Expression {
@@ -89,6 +116,9 @@ class EXP_UNARY implements Expression {
 	public String toString() {
 		return "(" + opr.getSymbol() + opnd.toString() + ")";
 	}
+	
+	@Override
+	public Set<String> getGenVariables() {return opnd.getGenVariables();}
 }
 
 class EXP_CALL implements Expression {
@@ -111,6 +141,16 @@ class EXP_CALL implements Expression {
 		}
 		stringBuilder.append(")");
 		return stringBuilder.toString();
+	}
+	
+	@Override
+	public Set<String> getGenVariables() {
+		Set<String> set = new HashSet<String>();
+		for(Expression expression : args) {
+			Iterator<String> iterator = expression.getGenVariables().iterator();
+			while(iterator.hasNext()) {set.add(iterator.next());}
+		}
+		return set;
 	}
 }
 
@@ -137,6 +177,8 @@ class ST_ASSIGN implements Statement {
 	public String toString() {
 		return "{assign " + id + value.toString() + "}";
 	}
+
+	public Set<String> getGenVariables() {return value.getGenVariables();}
 }
 
 class ST_IF implements Statement {
@@ -154,6 +196,8 @@ class ST_IF implements Statement {
 	public String toString() {
 		return guard.toString();
 	}
+	
+	public Set<String> getGenVariables() {return guard.getGenVariables();}
 }
 
 class ST_WHILE implements Statement {
@@ -169,6 +213,8 @@ class ST_WHILE implements Statement {
 	public String toString() {
 		return guard.toString();
 	}
+	
+	public Set<String> getGenVariables() {return guard.getGenVariables();}
 }
 
 class ST_RETURN implements Statement {
@@ -182,6 +228,8 @@ class ST_RETURN implements Statement {
 	public String toString() {
 		return "{return " + exp.toString() + "}";
 	}
+	
+	public Set<String> getGenVariables() {return exp.getGenVariables();}
 }
 
 class ST_PRINT implements Statement {
@@ -195,6 +243,8 @@ class ST_PRINT implements Statement {
 	public String toString() {
 		return "{print " + exp.toString() + "}";
 	}
+
+	public Set<String> getGenVariables() {return exp.getGenVariables();}
 }
 
 class Function {
