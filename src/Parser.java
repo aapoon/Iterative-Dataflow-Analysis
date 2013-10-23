@@ -76,7 +76,8 @@ public class Parser {
 		printWriter.println("\tsize = \"4,4\";");
 		
 		for(Node entry : entries) {
-			liveOut(entry.exit);
+			int count = 0;
+			while(!liveOut(entry, count++));
 			int exit = cfg_counter++;
 			entry.exit.number = exit;
 			traverse(entry, printWriter, exit);
@@ -88,22 +89,26 @@ public class Parser {
 		printWriter.close();
 	}
 	
-	private void liveOut(Node node) {
-		for(Node successor : node.successors) {if(successor.visited == false) return;}
+	private boolean liveOut(Node node, int traversal_count) {
+		boolean same = true;
+		Set<String> LiveOut = new HashSet<String>();
 		for(Node successor : node.successors) {
 			Set<String> set = new HashSet<String>(successor.LiveOut);
-			Iterator<String> iterator = successor.kill.iterator();
-			while(iterator.hasNext()) {set.remove(iterator.next());}
-			iterator = successor.gen.iterator();
-			while(iterator.hasNext()) {set.add(iterator.next());}
-			iterator = set.iterator();
-			while(iterator.hasNext()) {node.LiveOut.add(iterator.next());}
+			set.removeAll(successor.kill);
+			set.addAll(successor.gen);
+			LiveOut.addAll(set);
 		}
-		node.visited = true;
-		
-		for(Node predecessor : node.predecessors) {
-			liveOut(predecessor);
+		if(!node.LiveOut.equals(LiveOut)) {
+			node.LiveOut = LiveOut;
+			same = false;
 		}
+		node.traversal_count++;
+		for(Node successor : node.successors) {
+			if(successor.traversal_count != traversal_count) {
+				same = same && liveOut(successor, traversal_count);
+			}
+		}
+		return same;
 	}
 	
 	private int traverse(Node node, PrintWriter printWriter, int exit) {
