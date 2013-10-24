@@ -10,12 +10,12 @@ public class Node {
 	public List<Node> successors;
 	public int number;
 	public Set<Integer> dom;
-	public boolean visited_predecessors = false;
-	public Node exit;
+	public boolean visited_predecessors = false; // used to calculate dom
+	public Node exit; // only used by entry node
 	public Set<String> gen;
 	public Set<String> kill;
 	public Set<String> LiveOut;
-	public int traversal_count = 0;
+	public int traversal_count = 0; // used to calculate LiveOut
 	
 	public Node() {
 		this.predecessors = new ArrayList<Node>();

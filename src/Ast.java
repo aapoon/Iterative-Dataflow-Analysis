@@ -23,6 +23,7 @@ enum UnaryOperator {
 
 interface Expression {
 	public Set<String> getGenVariables();
+	public boolean containsCall();
 }
 
 class EXP_NUM implements Expression {
@@ -39,6 +40,9 @@ class EXP_NUM implements Expression {
 	
 	@Override
 	public Set<String> getGenVariables() {return new HashSet<String>();}
+	
+	@Override
+	public boolean containsCall() {return false;}
 }
 
 class EXP_ID implements Expression {
@@ -59,6 +63,9 @@ class EXP_ID implements Expression {
 		set.add(id);
 		return set;
 	}
+	
+	@Override
+	public boolean containsCall() {return false;}
 }
 
 class EXP_TRUE implements Expression {
@@ -69,6 +76,9 @@ class EXP_TRUE implements Expression {
 	
 	@Override
 	public Set<String> getGenVariables() {return new HashSet<String>();}
+
+	@Override
+	public boolean containsCall() {return false;}
 }
 class EXP_FALSE implements Expression {
 	@Override
@@ -76,6 +86,9 @@ class EXP_FALSE implements Expression {
 	
 	@Override
 	public Set<String> getGenVariables() {return new HashSet<String>();}
+
+	@Override
+	public boolean containsCall() {return false;}
 }
 
 class EXP_BINARY implements Expression {
@@ -101,6 +114,9 @@ class EXP_BINARY implements Expression {
 		while(iterator.hasNext()) {set.add(iterator.next());}
 		return set;
 	}
+
+	@Override
+	public boolean containsCall() {return lft.containsCall() || rht.containsCall();}
 }
 
 class EXP_UNARY implements Expression {
@@ -119,6 +135,9 @@ class EXP_UNARY implements Expression {
 	
 	@Override
 	public Set<String> getGenVariables() {return opnd.getGenVariables();}
+
+	@Override
+	public boolean containsCall() {return opnd.containsCall();}
 }
 
 class EXP_CALL implements Expression {
@@ -146,12 +165,12 @@ class EXP_CALL implements Expression {
 	@Override
 	public Set<String> getGenVariables() {
 		Set<String> set = new HashSet<String>();
-		for(Expression expression : args) {
-			Iterator<String> iterator = expression.getGenVariables().iterator();
-			while(iterator.hasNext()) {set.add(iterator.next());}
-		}
+		for(Expression expression : args) {set.addAll(expression.getGenVariables());}
 		return set;
 	}
+
+	@Override
+	public boolean containsCall() {return true;}
 }
 
 interface Statement {}

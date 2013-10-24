@@ -174,7 +174,12 @@ public class Parser {
 			exit.statement = "Exit";
 			entry.exit = exit;
 			
-			Node answer = createControlFlowGraph(entry, exit, function.body);
+			Set<String> variables = new HashSet<String>();
+			getVariables(function.body, variables);
+			variables.removeAll(function.params);
+			variables.removeAll(function.vars);
+			
+			Node answer = createControlFlowGraph(entry, exit, function.body, variables);
 			if(answer != null) {
 				answer.successors.add(exit);
 				exit.predecessors.add(answer);
@@ -184,10 +189,37 @@ public class Parser {
 		cfg_func(entries);
 	}
 	
-	private Node createControlFlowGraph(Node predecessor, Node exit, Statement statement) {
+	private void getVariables(Statement statement, Set<String> variables) {
 		if(statement instanceof ST_SEQ) {
 			for(Statement stmt : ((ST_SEQ) statement).stmts) {
-				Node node = createControlFlowGraph(predecessor, exit, stmt);
+				getVariables(stmt, variables);
+			}
+		}
+		else if(statement instanceof ST_ASSIGN) {
+			variables.add(((ST_ASSIGN) statement).id);
+			variables.addAll(((ST_ASSIGN) statement).getGenVariables());
+		}
+		else if(statement instanceof ST_IF) {
+			variables.addAll(((ST_IF) statement).getGenVariables());
+			getVariables(((ST_IF) statement).th, variables);
+			getVariables(((ST_IF) statement).el, variables);
+		}
+		else if(statement instanceof ST_WHILE) {
+			variables.addAll(((ST_WHILE) statement).getGenVariables());
+			getVariables(((ST_WHILE) statement).body, variables);
+		}
+		else if(statement instanceof ST_RETURN) {
+			variables.addAll(((ST_RETURN) statement).getGenVariables());
+		}
+		else if(statement instanceof ST_PRINT) {
+			variables.addAll(((ST_PRINT) statement).getGenVariables());
+		}
+	}
+	
+	private Node createControlFlowGraph(Node predecessor, Node exit, Statement statement, Set<String> variables) {
+		if(statement instanceof ST_SEQ) {
+			for(Statement stmt : ((ST_SEQ) statement).stmts) {
+				Node node = createControlFlowGraph(predecessor, exit, stmt, variables);
 				if(node == null) {return null;}
 				predecessor = node;
 			}
@@ -197,6 +229,10 @@ public class Parser {
 			Node node = new Node();
 			node.statement = ((ST_ASSIGN) statement).toString();
 			node.gen = ((ST_ASSIGN) statement).getGenVariables();
+			if(((ST_ASSIGN) statement).value.containsCall()) {
+				node.gen.addAll(variables);
+				node.kill.addAll(variables);
+			}
 			node.kill.add(((ST_ASSIGN) statement).id);
 			node.predecessors.add(predecessor);
 			predecessor.successors.add(node);
@@ -206,11 +242,15 @@ public class Parser {
 			Node node = new Node();
 			node.statement = ((ST_IF) statement).toString();
 			node.gen = ((ST_IF) statement).getGenVariables();
+			if(((ST_IF) statement).guard.containsCall()) {
+				node.gen.addAll(variables);
+				node.kill.addAll(variables);
+			}
 			node.predecessors.add(predecessor);
 			predecessor.successors.add(node);
 			
-			Node trueNode = createControlFlowGraph(node, exit, ((ST_IF) statement).th);
-			Node falseNode = createControlFlowGraph(node, exit, ((ST_IF) statement).el);
+			Node trueNode = createControlFlowGraph(node, exit, ((ST_IF) statement).th, variables);
+			Node falseNode = createControlFlowGraph(node, exit, ((ST_IF) statement).el, variables);
 			
 			if(trueNode == null && falseNode == null) {return null;}
 			
@@ -231,9 +271,13 @@ public class Parser {
 			Node node = new Node();
 			node.statement = ((ST_WHILE) statement).toString();
 			node.gen = ((ST_WHILE) statement).getGenVariables();
+			if(((ST_WHILE) statement).guard.containsCall()) {
+				node.gen.addAll(variables);
+				node.kill.addAll(variables);
+			}
 			node.predecessors.add(predecessor);
 			predecessor.successors.add(node);
-			Node trueNode = createControlFlowGraph(node, exit, ((ST_WHILE) statement).body);
+			Node trueNode = createControlFlowGraph(node, exit, ((ST_WHILE) statement).body, variables);
 			if(trueNode == null) {return null;}
 			trueNode.successors.add(node);
 			return node;
@@ -242,6 +286,10 @@ public class Parser {
 			Node node = new Node();
 			node.statement = ((ST_RETURN) statement).toString();
 			node.gen = ((ST_RETURN) statement).getGenVariables();
+			if(((ST_RETURN) statement).exp.containsCall()) {
+				node.gen.addAll(variables);
+				node.kill.addAll(variables);
+			}
 			
 			node.predecessors.add(predecessor);
 			predecessor.successors.add(node);
@@ -254,6 +302,10 @@ public class Parser {
 			Node node = new Node();
 			node.statement = ((ST_PRINT) statement).toString();
 			node.gen = ((ST_PRINT) statement).getGenVariables();
+			if(((ST_PRINT) statement).exp.containsCall()) {
+				node.gen.addAll(variables);
+				node.kill.addAll(variables);
+			}
 			node.predecessors.add(predecessor);
 			predecessor.successors.add(node);
 			return node;
